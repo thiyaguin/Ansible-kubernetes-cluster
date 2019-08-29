@@ -1,0 +1,132 @@
+
+- name: install Python
+  apt:
+    name: python
+    state: present
+    update_cache: true
+
+- name: Disable SWAP
+  shell: |
+    swapoff -a
+
+- name: Disable SWAP in fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^(.+?\sswap\s+sw\s+.*)$'
+    replace: '# \1'
+
+- name: create the 'kadmin' user
+  user:
+    name: kadmin
+    append: yes
+    state: present
+    createhome: yes
+    shell: /bin/bash
+
+- name: allow 'kadmin' to have passwordless sudo
+  lineinfile:
+    dest: /etc/sudoers
+    line: 'kadmin ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
+
+- name: set up authorized keys for the kadmin user
+  authorized_key:
+    user: kadmin
+    key: "{{item}}"
+  with_file:
+    - ~/.ssh/id_rsa.pub
+
+- name: install Docker
+  apt:
+    name: docker.io
+    state: present
+    update_cache: true
+
+- name: install APT Transport HTTPS
+  apt:
+    name: apt-transport-https
+    state: present
+
+- name: add Kubernetes apt-key
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+
+- name: add Kubernetes' APT repository
+  apt_repository:
+    repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    filename: 'kubernetes'
+
+- name: install kubelet
+  apt:
+    name: kubelet=1.14.0-00
+    state: present
+    update_cache: true
+
+- name: install kubeadm
+  apt:
+    name: kubeadm=1.14.0-00
+    state: present
+
+# Master Only Tasks
+
+- name: install kubectl
+  apt:
+    name: kubectl=1.14.0-00
+    state: present
+    force: yes
+  when: inventory_hostname in groups['masters']
+
+- name: initialize the cluster
+  shell: kubeadm init --pod-network-cidr={{ item.iprange }}>> cluster_initialized.txt
+  args:
+    chdir: $HOME
+    creates: cluster_initialized.txt
+  when: inventory_hostname in groups['masters']
+  with_items: "{{ cluster }}"
+
+- name: create .kube directory
+  become: yes
+  become_user: kadmin
+  file:
+    path: $HOME/.kube
+    state: directory
+    mode: 0755
+  when: inventory_hostname in groups['masters']
+
+- name: copy admin.conf to user's kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/kadmin/.kube/config
+    remote_src: yes
+    owner: kadmin
+  when: inventory_hostname in groups['masters']
+
+- name: install Pod network
+  become: yes
+  become_user: kadmin
+  shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/a70459be0084506e4ec919aa1c114638878db11b/Documentation/kube-flannel.yml >> pod_network_setup.txt
+  args:
+    chdir: $HOME
+    creates: pod_network_setup.txt
+  when: inventory_hostname in groups['masters']
+
+- name: get join command
+  shell: kubeadm token create --print-join-command
+  register: join_command_raw
+  when: inventory_hostname in groups['masters']
+
+- name: set join command
+  set_fact:
+    join_command: "{{ join_command_raw.stdout_lines[0] }}"
+  when: inventory_hostname in groups['masters']
+
+# Worker Only Tasks
+
+- name: join cluster
+  shell: "{{ hostvars['master'].join_command }} >> node_joined.txt"
+  args:
+    chdir: $HOME
+    creates: node_joined.txt
+  when: inventory_hostname in groups['workers']
