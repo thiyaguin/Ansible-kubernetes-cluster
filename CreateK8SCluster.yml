@@ -1,0 +1,15 @@
+---
+#
+# Author: Thiyagarajan K (kthiyagarajan@vanenburgsoftware.com)
+# Creates 1+N (master and worker) kubernetes cluster environment
+# Edit the host file for proper IPs and Username and Password
+#
+- hosts: all
+  become: yes
+  become_method: sudo
+  any_errors_fatal: true
+  vars:
+    cluster:
+      - iprange: 10.195.19.0/24 
+  roles:
+    - deploy-cluster

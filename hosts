@@ -1,0 +1,12 @@
+[masters]
+master ansible_host=10.195.19.59
+
+[workers]
+worker1 ansible_host=10.195.19.58
+worker2 ansible_host=10.195.19.63
+
+[all:vars]
+ansible_user=cloudops
+ansible_password=suppo67
+ansible_become_pass=suppo67
+ansible_python_interpreter=/usr/bin/python3
