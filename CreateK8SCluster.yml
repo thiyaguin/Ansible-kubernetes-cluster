@@ -1,6 +1,6 @@
 ---
 #
-# Author: Thiyagarajan K (kthiyagarajan@vanenburgsoftware.com)
+# Author: Thiyagarajan K
 # Creates 1+N (master and worker) kubernetes cluster environment
 # Edit the host file for proper IPs and Username and Password
 #
