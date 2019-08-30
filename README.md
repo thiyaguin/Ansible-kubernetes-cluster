@@ -32,7 +32,12 @@ Run the play book
  
  To Validate the cluster ssh to the Master node and run the following commands
  
- ``` sudo su kadmin ```
+ Switch as kadmin user
+ 
+ ``` sudo su kadmin ``` 
+ 
+ Run the kubectl command to get node status
+ 
  ``` kubectl get node ```
  
 The command will return all the nodes informations
